@@ -85,17 +85,17 @@ hey team, how's it going?
 
 When chorus is running, all non-slash-command input is routed to the group chat automatically — no need to prefix with `/say`.
 
-## Built-in Personas
+## Sample Personas
+
+Three sample personas ship in `src/agents/` for getting started:
 
 | Agent | Avatar | Specialization |
 |-------|--------|---------------|
-| `dev` | 🧑‍🚀 | Generalist / Pragmatist |
-| `kai` | 🧑‍💻 | Clean Code & Craft Engineer |
-| `elena` | 👩‍🔬 | Reliability & Testing Engineer |
-| `lia` | 👩‍🏫 | Senior Engineer / Mentor |
-| `marcus` | 🧔‍♂️ | Move-Fast Engineer |
-| `nadia` | 👩‍🔧 | Systems & Performance Engineer |
-| `omar` | 🧑‍🎓 | Junior-ish Engineer with Big Ideas |
+| `dev` | 🧑‍🚀 | Generalist |
+| `kai` | 🧑‍💻 | Clean Code |
+| `elena` | 👩‍🔬 | Testing & Reliability |
+
+Run `/chorus setup` to copy them to `~/.pi/agent/chorus/agents/`. Add your own or customize from there.
 
 ## Creating Custom Personas
 
