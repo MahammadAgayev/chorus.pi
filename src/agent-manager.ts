@@ -2,7 +2,9 @@ import {
   createAgentSession,
   DefaultResourceLoader,
   defineTool,
+  findExactModelReferenceMatch,
   getAgentDir,
+  ModelRuntime,
   SessionManager,
   SettingsManager,
 } from "@earendil-works/pi-coding-agent";
@@ -46,6 +48,7 @@ export class AgentManager {
   private readonly MAX_ROUND_MESSAGES = 12;
   // Cached per-agent — avoids allocating a new FocusManager on every message
   private focusManagers = new Map<string, FocusManager>();
+  private modelRuntime?: ModelRuntime;
 
   constructor(bus: ChatBus, config: ChorusConfig) {
     this.bus = bus;
@@ -53,6 +56,7 @@ export class AgentManager {
   }
 
   async start(): Promise<void> {
+    this.modelRuntime = await ModelRuntime.create();
     for (const name of this.config.agentNames) {
       await this.addAgent(name);
     }
@@ -159,6 +163,8 @@ export class AgentManager {
       },
     });
 
+    const resolvedModel = persona.model ? this.resolveModel(persona.model) : undefined;
+
     const { session } = await createAgentSession({
       cwd: this.config.cwd,
       agentDir,
@@ -168,6 +174,8 @@ export class AgentManager {
       customTools: [sendMessageTool, manageFocusTool],
       sessionManager: SessionManager.inMemory(this.config.cwd),
       settingsManager,
+      ...(this.modelRuntime ? { modelRuntime: this.modelRuntime } : {}),
+      ...(resolvedModel ? { model: resolvedModel } : {}),
     });
 
     const state: AgentState = {
@@ -472,5 +480,11 @@ ${persona.systemPrompt}
     const state = this.agents.get(agentName.toLowerCase());
     if (state) state.focusTopics = [];
     this.focusManagers.get(agentName.toLowerCase())?.clearFocus();
+  }
+
+  private resolveModel(modelRef: string) {
+    if (!this.modelRuntime) return undefined;
+    const available = this.modelRuntime.getModels();
+    return findExactModelReferenceMatch(modelRef, [...available]);
   }
 }
