@@ -14,6 +14,10 @@ A multi-agent chat collaboration extension for [pi](https://github.com/earendil-
 git clone <repo-url> chorus
 cd chorus
 npm install
+
+# Set up persona directory with the sample agent
+mkdir -p ~/.pi/agent/chorus/agents
+cp src/agents/dev.md ~/.pi/agent/chorus/agents/
 ```
 
 ## Usage
@@ -85,9 +89,13 @@ When chorus is running, all non-slash-command input is routed to the group chat 
 
 ## Creating Custom Personas
 
-Drop a `.md` file into `~/.pi/agent/chorus/agents/` — chorus auto-discovers all markdown files there. User-level personas override built-in ones with the same name.
+Chorus loads personas exclusively from `~/.pi/agent/chorus/agents/`. Drop a `.md` file there and it's auto-discovered.
 
-Built-in personas also ship in `src/agents/` inside the package.
+A sample persona (`dev.md`) ships in `src/agents/` — copy it during installation to get started, or copy all of them:
+
+```bash
+cp src/agents/*.md ~/.pi/agent/chorus/agents/
+```
 
 ### Persona file format
 

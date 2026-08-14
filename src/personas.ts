@@ -1,36 +1,16 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { fileURLToPath } from "node:url";
 import { getAgentDir, parseFrontmatter } from "@earendil-works/pi-coding-agent";
 import type { AgentPersona } from "./types.ts";
 
-let __dirname: string;
-try {
-  __dirname = path.dirname(fileURLToPath(import.meta.url));
-} catch {
-  // Fallback for environments where import.meta.url is not a file URL
-  __dirname = process.cwd();
-}
+// Personas are loaded exclusively from the user-level config directory
+const AGENTS_DIR = path.join(getAgentDir(), "chorus", "agents");
 
-// Built-in personas ship with the package
-const BUILTIN_AGENTS_DIR_CANDIDATES = [
-  path.join(__dirname, "agents"),
-  path.join(process.cwd(), "src", "agents"),
-];
-
-// User-level personas live alongside other pi config
-const USER_AGENTS_DIR = path.join(getAgentDir(), "chorus", "agents");
-
-function getBuiltinAgentsDir(): string {
-  for (const dir of BUILTIN_AGENTS_DIR_CANDIDATES) {
-    try {
-      fs.accessSync(dir);
-      return dir;
-    } catch {
-      continue;
-    }
-  }
-  return BUILTIN_AGENTS_DIR_CANDIDATES[0];
+/**
+ * Get the directory where persona files are loaded from.
+ */
+export function getPersonasDir(): string {
+  return AGENTS_DIR;
 }
 
 /**
@@ -87,14 +67,11 @@ function loadPersonasFromDir(dir: string, personas: Map<string, AgentPersona>): 
 }
 
 /**
- * Discover all available personas.
- * Loads built-in personas first, then user-level (~/.pi/agent/chorus/agents/).
- * User-level personas override built-in ones with the same name.
+ * Discover all available personas from ~/.pi/agent/chorus/agents/.
  */
 export function discoverPersonas(): Map<string, AgentPersona> {
   const personas = new Map<string, AgentPersona>();
-  loadPersonasFromDir(getBuiltinAgentsDir(), personas);
-  loadPersonasFromDir(USER_AGENTS_DIR, personas);
+  loadPersonasFromDir(AGENTS_DIR, personas);
   return personas;
 }
 

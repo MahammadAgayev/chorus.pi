@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "Multi-agent chat collaboration for pi",
   "type": "module",
+  "scripts": {
+    "test": "node --experimental-strip-types --test src/__tests__/*.test.ts"
+  },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "*",
     "@earendil-works/pi-tui": "*",
