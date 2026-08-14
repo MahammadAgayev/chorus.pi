@@ -68,10 +68,11 @@ function loadPersonasFromDir(dir: string, personas: Map<string, AgentPersona>): 
 
 /**
  * Discover all available personas from ~/.pi/agent/chorus/agents/.
+ * @param dir — override the persona directory (used by tests)
  */
-export function discoverPersonas(): Map<string, AgentPersona> {
+export function discoverPersonas(dir?: string): Map<string, AgentPersona> {
   const personas = new Map<string, AgentPersona>();
-  loadPersonasFromDir(AGENTS_DIR, personas);
+  loadPersonasFromDir(dir ?? AGENTS_DIR, personas);
   return personas;
 }
 
