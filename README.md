@@ -85,7 +85,9 @@ When chorus is running, all non-slash-command input is routed to the group chat 
 
 ## Creating Custom Personas
 
-Add a `.md` file to the `src/agents/` directory. Chorus auto-discovers all markdown files in that directory.
+Drop a `.md` file into `~/.pi/agent/chorus/agents/` — chorus auto-discovers all markdown files there. User-level personas override built-in ones with the same name.
+
+Built-in personas also ship in `src/agents/` inside the package.
 
 ### Persona file format
 

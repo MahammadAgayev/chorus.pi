@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseFrontmatter } from "@earendil-works/pi-coding-agent";
+import { getAgentDir, parseFrontmatter } from "@earendil-works/pi-coding-agent";
 import type { AgentPersona } from "./types.ts";
 
 let __dirname: string;
@@ -12,14 +12,17 @@ try {
   __dirname = process.cwd();
 }
 
-// Try the directory relative to this file first, then fall back to cwd-relative
-const AGENTS_DIR_CANDIDATES = [
+// Built-in personas ship with the package
+const BUILTIN_AGENTS_DIR_CANDIDATES = [
   path.join(__dirname, "agents"),
   path.join(process.cwd(), "src", "agents"),
 ];
 
-function getAgentsDir(): string {
-  for (const dir of AGENTS_DIR_CANDIDATES) {
+// User-level personas live alongside other pi config
+const USER_AGENTS_DIR = path.join(getAgentDir(), "chorus", "agents");
+
+function getBuiltinAgentsDir(): string {
+  for (const dir of BUILTIN_AGENTS_DIR_CANDIDATES) {
     try {
       fs.accessSync(dir);
       return dir;
@@ -27,7 +30,7 @@ function getAgentsDir(): string {
       continue;
     }
   }
-  return AGENTS_DIR_CANDIDATES[0]; // default even if not found
+  return BUILTIN_AGENTS_DIR_CANDIDATES[0];
 }
 
 /**
@@ -64,29 +67,34 @@ function loadPersonaFromFile(filePath: string): AgentPersona | null {
 }
 
 /**
- * Discover all available personas from the agents/ directory.
+ * Load all .md persona files from a directory into the map.
+ * Later calls overwrite earlier entries with the same name.
  */
-export function discoverPersonas(): Map<string, AgentPersona> {
-  const personas = new Map<string, AgentPersona>();
-
-  const agentsDir = getAgentsDir();
+function loadPersonasFromDir(dir: string, personas: Map<string, AgentPersona>): void {
   let entries: fs.Dirent[];
   try {
-    entries = fs.readdirSync(agentsDir, { withFileTypes: true });
+    entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch {
-    console.warn(`[chorus] Agents directory not found: ${agentsDir}. No personas will be available.`);
-    return personas;
+    return;
   }
-
   for (const entry of entries) {
     if (!entry.name.endsWith(".md")) continue;
-    const filePath = path.join(agentsDir, entry.name);
-    const persona = loadPersonaFromFile(filePath);
+    const persona = loadPersonaFromFile(path.join(dir, entry.name));
     if (persona) {
       personas.set(persona.name.toLowerCase(), persona);
     }
   }
+}
 
+/**
+ * Discover all available personas.
+ * Loads built-in personas first, then user-level (~/.pi/agent/chorus/agents/).
+ * User-level personas override built-in ones with the same name.
+ */
+export function discoverPersonas(): Map<string, AgentPersona> {
+  const personas = new Map<string, AgentPersona>();
+  loadPersonasFromDir(getBuiltinAgentsDir(), personas);
+  loadPersonasFromDir(USER_AGENTS_DIR, personas);
   return personas;
 }
 
