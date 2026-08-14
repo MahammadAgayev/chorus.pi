@@ -17,113 +17,134 @@ const AGENT_COLORS = [
 type ThemeFg = (color: string, text: string) => string;
 type ThemeBold = (text: string) => string;
 
-let colorIndex = 0;
-const agentColorMap = new Map<string, string>();
+/**
+ * Encapsulates per-session color assignment so that state doesn't leak
+ * across chorus sessions. Each ChatRenderer instance tracks its own
+ * color index and agent→color mapping.
+ */
+export class ChatRenderer {
+  private colorIndex = 0;
+  private agentColorMap = new Map<string, string>();
 
-function getAgentColor(agentName: string): string {
-  if (!agentColorMap.has(agentName)) {
-    agentColorMap.set(agentName, AGENT_COLORS[colorIndex % AGENT_COLORS.length]);
-    colorIndex++;
+  private getAgentColor(agentName: string): string {
+    if (!this.agentColorMap.has(agentName)) {
+      this.agentColorMap.set(agentName, AGENT_COLORS[this.colorIndex % AGENT_COLORS.length]);
+      this.colorIndex++;
+    }
+    return this.agentColorMap.get(agentName)!;
   }
-  return agentColorMap.get(agentName)!;
+
+  private highlightMentions(text: string, fg: ThemeFg): string {
+    return text.replace(/@([\w-]+)/g, (match, name) => {
+      const color = this.getAgentColor(name);
+      return fg(color, match);
+    });
+  }
+
+  /**
+   * Render a single chat message as a chat bubble.
+   * @param resolveMessage — optional lookup to resolve replyTo IDs into previews
+   */
+  renderChatMessage(
+    msg: ChatMessage,
+    fg: ThemeFg,
+    bold: ThemeBold,
+    agents: Map<string, AgentState>,
+    resolveMessage?: (id: string) => ChatMessage | undefined,
+  ): string {
+    const time = new Date(msg.timestamp).toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    if (msg.type === "system") {
+      return fg("dim", `  📢 ${msg.content}  ${fg("muted", time)}`);
+    }
+
+    if (msg.from === "user") {
+      const header = fg("accent", bold("👤 You")) + "  " + fg("muted", time);
+      const content = this.highlightMentions(msg.content, fg);
+      return `${header}\n${content}`;
+    }
+
+    const agent = agents.get(msg.from.toLowerCase());
+    const avatar = agent?.persona.avatar ?? "🤖";
+    const color = this.getAgentColor(msg.from);
+
+    const header = fg(color, bold(`${avatar} ${msg.from}`)) + "  " + fg("muted", time);
+    const content = this.highlightMentions(msg.content, fg);
+
+    let replyLine = "";
+    if (msg.replyTo) {
+      const original = resolveMessage?.(msg.replyTo);
+      if (original) {
+        // Show a truncated preview of the original message
+        const preview = original.content.length > 60
+          ? original.content.slice(0, 60) + "…"
+          : original.content;
+        replyLine = fg("dim", `  ↳ replying to ${original.from}: "${preview}"`) + "\n";
+      } else {
+        replyLine = fg("dim", `  ↳ replying to ${msg.replyTo}`) + "\n";
+      }
+    }
+
+    return `${header}\n${replyLine}${content}`;
+  }
+
+  renderChatView(
+    messages: readonly ChatMessage[],
+    fg: ThemeFg,
+    bold: ThemeBold,
+    agents: Map<string, AgentState>,
+    maxMessages = 50,
+    resolveMessage?: (id: string) => ChatMessage | undefined,
+  ): string[] {
+    const recent = messages.slice(-maxMessages);
+    const lines: string[] = [];
+
+    for (const msg of recent) {
+      if (msg.type === "tool_activity") continue;
+
+      lines.push(this.renderChatMessage(msg, fg, bold, agents, resolveMessage));
+      lines.push("");
+    }
+
+    return lines;
+  }
 }
 
 /**
- * Render a single chat message as a chat bubble.
+ * renderStatusBar is stateless — no color assignment needed — so it
+ * stays as a standalone function.
  */
-export function renderChatMessage(
-  msg: ChatMessage,
-  fg: ThemeFg,
-  bold: ThemeBold,
-  agents: Map<string, AgentState>,
-): string {
-  const time = new Date(msg.timestamp).toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  if (msg.type === "system") {
-    return fg("dim", `  📢 ${msg.content}  ${fg("muted", time)}`);
-  }
-
-  if (msg.from === "user") {
-    const header = fg("accent", bold("👤 You")) + "  " + fg("muted", time);
-    const content = highlightMentions(msg.content, fg);
-    return `${header}\n${content}`;
-  }
-
-  const agent = agents.get(msg.from.toLowerCase());
-  const avatar = agent?.persona.avatar ?? "🤖";
-  const color = getAgentColor(msg.from);
-
-  if (msg.type === "tool_activity") {
-    return fg("dim", `  ${avatar} ${msg.from} → ${msg.content}`);
-  }
-
-  const header = fg(color, bold(`${avatar} ${msg.from}`)) + "  " + fg("muted", time);
-  const content = highlightMentions(msg.content, fg);
-
-  let replyLine = "";
-  if (msg.replyTo) {
-    replyLine = fg("dim", `  ↳ replying to ${msg.replyTo}`) + "\n";
-  }
-
-  return `${header}\n${replyLine}${content}`;
-}
-
-function highlightMentions(text: string, fg: ThemeFg): string {
-  return text.replace(/@([\w-]+)/g, (match, name) => {
-    const color = getAgentColor(name);
-    return fg(color, match);
-  });
-}
-
-export function renderChatView(
-  messages: readonly ChatMessage[],
-  fg: ThemeFg,
-  bold: ThemeBold,
-  agents: Map<string, AgentState>,
-  maxMessages = 50,
-): string[] {
-  const recent = messages.slice(-maxMessages);
-  const lines: string[] = [];
-  for (const msg of recent) {
-    lines.push(renderChatMessage(msg, fg, bold, agents));
-    lines.push("");
-  }
-  return lines;
-}
-
 export function renderStatusBar(
   agents: Map<string, AgentState>,
   typingAgents: Set<string>,
   fg: ThemeFg,
 ): string[] {
-  const lines: string[] = [];
-
-  if (typingAgents.size > 0) {
-    const names = Array.from(typingAgents)
-      .map((name) => {
-        const agent = agents.get(name.toLowerCase());
-        return agent ? `${agent.persona.avatar} ${name}` : name;
-      })
-      .join(", ");
-    lines.push(fg("muted", `  ${names} typing...`));
-  }
-
   const roster = Array.from(agents.values())
     .map((a) => {
-      const statusIcon =
-        a.status === "thinking" ? "💭" :
-        a.status === "working" ? "⚡" :
-        a.status === "paused" ? "⏸️" : "●";
-      const statusColor =
-        a.status === "paused" ? "muted" :
-        a.status === "idle" ? "dim" : "accent";
-      return fg(statusColor, `${a.persona.avatar} ${a.persona.name} ${statusIcon}`);
+      const name      = a.persona.name;
+      const isTyping  = typingAgents.has(name);
+      const msgCount  = a.messageCount > 0 ? ` (${a.messageCount})` : "";
+
+      const { icon, color } = agentStatusAppearance(a.status, isTyping);
+
+      const nameAndIcon = `${a.persona.avatar} ${name} ${icon}${msgCount}`;
+      return fg(color, nameAndIcon);
     })
     .join("  ");
 
-  lines.push(roster);
-  return lines;
+  return [roster];
+}
+
+function agentStatusAppearance(
+  status: AgentState["status"],
+  isTyping: boolean,
+): { icon: string; color: string } {
+  if (status === "paused")   return { icon: "⏸️",  color: "muted"   };
+  if (status === "working")  return { icon: "⚡",  color: "success" };
+  if (status === "thinking") return { icon: "💭",  color: "warning" };
+  if (isTyping)              return { icon: "✍️",   color: "accent"  };
+  return                            { icon: "●",   color: "dim"     };
 }

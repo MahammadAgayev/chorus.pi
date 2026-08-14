@@ -1,6 +1,6 @@
 # Chorus 🎵
 
-A multi-agent chat collaboration extension for [pi](https://github.com/earendil-works/pi-mono). Spawns a team of AI agents that communicate in a shared group chat, each with their own persona, specialization, and randomly assigned mood.
+A multi-agent chat collaboration extension for [pi](https://github.com/earendil-works/pi-mono). Spawns a team of AI agents that communicate in a shared group chat, each with their own persona and specialization.
 
 ## Quick Start
 
@@ -12,10 +12,10 @@ cd chorus && npm install
 pi -e ./src/index.ts
 
 # Start a chorus
-/chorus start Build a REST API for user management --agents architect,backend,reviewer
+/chorus start Build a REST API for user management --agents dev,kai,elena
 
 # Talk to the group
-/say @backend what's the status on the auth endpoint?
+/say @elena what's the status on the auth endpoint?
 
 # Check status
 /chorus status
@@ -29,7 +29,7 @@ pi -e ./src/index.ts
 | Command | Description |
 |---------|-------------|
 | `/chorus start <task> [--agents a,b,c]` | Start a chorus with a task and optional agent list |
-| `/chorus status` | Show all agents, moods, and message counts |
+| `/chorus status` | Show all agents and message counts |
 | `/chorus add <agent>` | Add an agent mid-session |
 | `/chorus remove <agent>` | Remove an agent |
 | `/chorus pause <agent>` | Pause an agent |
@@ -40,28 +40,17 @@ pi -e ./src/index.ts
 
 ## Agent Personas
 
+Personas are defined as markdown files in `src/agents/`. Add a new agent by dropping a `.md` file with frontmatter.
+
 | Agent | Avatar | Specialization |
 |-------|--------|---------------|
-| `architect` | 🏗️ | System design, API contracts, architecture |
-| `backend` | ⚙️ | Server code, APIs, database |
-| `frontend` | 🎨 | UI components, styling, client-side |
-| `reviewer` | 🔍 | Code review, testing, quality |
-| `debugger` | 🐛 | Bug investigation, error handling |
-| `generalist` | 🛠️ | Jack of all trades |
-
-## Moods
-
-Each agent is randomly assigned a mood that shapes their behavior:
-
-| Mood | Emoji | Behavior |
-|------|-------|----------|
-| `focused` | 🎯 | Stays on task, ignores chatter |
-| `enthusiastic` | 🔥 | Proactive, offers help, cheerful |
-| `skeptical` | 🤔 | Questions assumptions, devil's advocate |
-| `chill` | 😎 | Relaxed, helps when asked |
-| `perfectionist` | ✨ | Nothing ships without tests and docs |
-| `impatient` | ⚡ | Moves fast, cuts scope |
-| `mentor` | 🧑‍🏫 | Explains reasoning, guides others |
+| `dev` | 🧑‍🚀 | Generalist / Pragmatist |
+| `kai` | 🧑‍💻 | Clean Code & Craft Engineer |
+| `elena` | 👩‍🔬 | Reliability & Testing Engineer |
+| `lia` | 👩‍🏫 | Senior Engineer / Mentor |
+| `marcus` | 🧔‍♂️ | Move-Fast Engineer |
+| `nadia` | 👩‍🔧 | Systems & Performance Engineer |
+| `omar` | 🧑‍🎓 | Junior-ish Engineer with Big Ideas |
 
 ## Key Features
 
@@ -71,7 +60,7 @@ Each agent is randomly assigned a mood that shapes their behavior:
 - **@mentions**: Tag specific agents with `@name` to direct questions
 - **File conflict detection**: Warns when two agents modify the same file
 - **Concurrent execution**: Up to 4 agents can work simultaneously
-- **Mood-based engagement**: Agent personality affects how proactively they engage
+- **Persona-based engagement**: Agent personality affects how proactively they engage
 
 ## Architecture
 
@@ -80,13 +69,13 @@ Each agent is randomly assigned a mood that shapes their behavior:
 │  pi TUI                                      │
 │  ┌────────────────────────────────────────┐  │
 │  │  Chat View (custom message renderer)   │  │
-│  │  🏗️ Architect: Let me design the API  │  │
-│  │  ⚙️ Backend: I'll implement /users     │  │
-│  │  👤 You: @reviewer check the PR        │  │
+│  │  🧑‍💻 kai: Let me clean up the API     │  │
+│  │  👩‍🔬 elena: I'll add test coverage     │  │
+│  │  👤 You: @dev can you update the docs? │  │
 │  └────────────────────────────────────────┘  │
 │  ┌────────────────────────────────────────┐  │
 │  │  Status Bar (widget below editor)      │  │
-│  │  🏗️ architect 🎯 ●  ⚙️ backend 🔥 💭  │  │
+│  │  🧑‍💻 kai ●  👩‍🔬 elena 💭  🧑‍🚀 dev ●   │  │
 │  └────────────────────────────────────────┘  │
 │  ┌────────────────────────────────────────┐  │
 │  │  Editor: /say or /chorus commands      │  │

@@ -2,12 +2,6 @@ import type { ChatMessage, ChatBusEvents } from "./types.ts";
 
 type Listener<T> = (data: T) => void;
 
-let nextMessageId = 1;
-
-export function generateMessageId(): string {
-  return `msg-${nextMessageId++}-${Date.now().toString(36)}`;
-}
-
 /**
  * Parse @mentions from message content.
  * Matches @name where name is alphanumeric/hyphens/underscores.
@@ -16,6 +10,16 @@ export function parseMentions(content: string): string[] {
   const matches = content.match(/@([\w-]+)/g);
   if (!matches) return [];
   return [...new Set(matches.map((m) => m.slice(1).toLowerCase()))];
+}
+
+/**
+ * Generate a unique message ID.
+ * Uses a module-level counter combined with a base-36 timestamp
+ * to ensure uniqueness across the process lifetime.
+ */
+let nextMessageId = 1;
+export function generateMessageId(): string {
+  return `msg-${nextMessageId++}-${Date.now().toString(36)}`;
 }
 
 /**
@@ -91,6 +95,7 @@ export class ChatBus {
   }
 
   getRecentMessages(count: number): ChatMessage[] {
+    if (count <= 0) return [];
     return this.history.slice(-count);
   }
 

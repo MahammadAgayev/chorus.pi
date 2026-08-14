@@ -19,10 +19,11 @@ import type { AgentState, ChatMessage } from "./types.ts";
 import { ChatBus } from "./chat-bus.ts";
 import { AgentManager } from "./agent-manager.ts";
 import { discoverPersonas, listPersonaNames } from "./personas.ts";
-import { renderChatMessage, renderStatusBar } from "./renderer.ts";
+import { ChatRenderer, renderStatusBar } from "./renderer.ts";
 
 export default function (pi: ExtensionAPI) {
   let manager: AgentManager | null = null;
+  let chatRenderer: ChatRenderer | null = null;
   let chatUnsub: (() => void) | undefined;
   let typingUnsub: (() => void) | undefined;
   let typingAgents = new Set<string>();
@@ -91,25 +92,32 @@ export default function (pi: ExtensionAPI) {
   // --- Custom message renderer for chat messages ---
 
   pi.registerMessageRenderer("chorus-chat", (message, { expanded }, theme) => {
-    const details = message.details as { chatMessage?: ChatMessage } | undefined;
-    if (!details?.chatMessage) {
-      return new Text(message.content, 0, 0);
-    }
-
-    const agentMap = new Map<string, AgentState>();
-    if (manager) {
-      for (const a of manager.getAllAgents()) {
-        agentMap.set(a.persona.name.toLowerCase(), a);
+    try {
+      const details = message.details as { chatMessage?: ChatMessage } | undefined;
+      if (!details?.chatMessage) {
+        return new Text(message.content ?? "", 0, 0);
       }
-    }
 
-    const rendered = renderChatMessage(
-      details.chatMessage,
-      theme.fg.bind(theme),
-      theme.bold.bind(theme),
-      agentMap,
-    );
-    return new Text(rendered, 0, 0);
+      const agentMap = new Map<string, AgentState>();
+      if (manager) {
+        for (const a of manager.getAllAgents()) {
+          agentMap.set(a.persona.name.toLowerCase(), a);
+        }
+      }
+
+      const renderer = chatRenderer ?? new ChatRenderer();
+      const rendered = renderer.renderChatMessage(
+        details.chatMessage,
+        theme.fg.bind(theme),
+        theme.bold.bind(theme),
+        agentMap,
+        (id) => manager?.getBus().getMessageById(id),
+      );
+      return new Text(rendered, 0, 0);
+    } catch {
+      // Fallback if rendering fails
+      return new Text(message.content ?? "", 0, 0);
+    }
   });
 
   // --- Intercept user input when chorus is active ---
@@ -180,6 +188,7 @@ export default function (pi: ExtensionAPI) {
     ctx.ui.notify(`Starting chorus with ${agentNames.length} agents: ${agentNames.join(", ")}`, "info");
 
     const bus = new ChatBus();
+    chatRenderer = new ChatRenderer();
     manager = new AgentManager(bus, {
       task,
       agentNames,
@@ -188,7 +197,6 @@ export default function (pi: ExtensionAPI) {
 
     // Subscribe to bus messages → render in pi's chat
     chatUnsub = bus.on("message", (msg) => {
-      // Post to pi's session as a custom message
       pi.sendMessage({
         customType: "chorus-chat",
         content: formatPlainMessage(msg),
@@ -412,7 +420,7 @@ export default function (pi: ExtensionAPI) {
 
   function formatPlainMessage(msg: ChatMessage): string {
     if (msg.type === "system") return `📢 ${msg.content}`;
-    if (msg.type === "tool_activity") return `${msg.from} → ${msg.toolName}: ${msg.content}`;
+    if (msg.type === "tool_activity") return `${msg.from} ${msg.content}`;
     return `${msg.from}: ${msg.content}`;
   }
 
@@ -426,6 +434,7 @@ export default function (pi: ExtensionAPI) {
       await manager.dispose();
       manager = null;
     }
+    chatRenderer = null;
   }
 
   // --- Pickers ---

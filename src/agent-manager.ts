@@ -39,10 +39,13 @@ export class AgentManager {
   private config: ChorusConfig;
   private busUnsub?: () => void;
   private activeFiles = new Map<string, string>();
+  private toolCallArgs = new Map<string, any>(); // toolCallId → args
   private turnQueue: Array<{ agentName: string; message: ChatMessage }> = [];
   private activeTurns = 0;
   private roundMessageCount = 0;
   private readonly MAX_ROUND_MESSAGES = 12;
+  // Cached per-agent — avoids allocating a new FocusManager on every message
+  private focusManagers = new Map<string, FocusManager>();
 
   constructor(bus: ChatBus, config: ChorusConfig) {
     this.bus = bus;
@@ -183,6 +186,7 @@ export class AgentManager {
     });
 
     this.agents.set(name.toLowerCase(), state);
+    this.focusManagers.set(name.toLowerCase(), new FocusManager(persona.name));
 
     this.bus.emit("agent_joined", { agent: name, persona });
     this.bus.post("system", `${persona.avatar} ${name} joined the chat — ${persona.description}`);
@@ -197,6 +201,7 @@ export class AgentManager {
     state.unsubscribe?.();
     state.session.dispose();
     this.agents.delete(key);
+    this.focusManagers.delete(key);
     this.bus.emit("agent_left", { agent: name });
     this.bus.post("system", `${state.persona.avatar} ${name} left the chat`);
   }
@@ -244,6 +249,7 @@ export class AgentManager {
       state.session.dispose();
     }
     this.agents.clear();
+    this.focusManagers.clear();
   }
 
   // --- Private ---
@@ -315,10 +321,7 @@ ${persona.systemPrompt}
       if (state.status === "paused") continue;
       if (state.turnInProgress) continue;
 
-      const focus = new FocusManager(name);
-      for (const id of state.ignoredMessageIds) focus.ignoreMessage(id);
-      if (state.focusTopics.length > 0) focus.setFocusTopics(state.focusTopics);
-
+      const focus = this.focusManagers.get(name)!;
       if (!focus.shouldInclude(msg)) continue;
 
       const isMentioned = msg.mentions.includes(name);
@@ -358,7 +361,7 @@ ${persona.systemPrompt}
     this.bus.emit("typing", { agent: agentName, isTyping: true });
 
     try {
-      const chatContext = this.buildChatContext(agentName, state);
+      const chatContext = this.buildChatContext(agentName);
       const prompt = `## Recent Chat Messages\n\n${chatContext}\n\n---\n\nNew message from ${triggerMsg.from}: ${triggerMsg.content}\n\nRespond appropriately. Use send_message to communicate with the team. Use your coding tools (read, edit, bash, etc.) to do real work. If this message doesn't concern you, use manage_focus to ignore it and stop.`;
       await state.session.prompt(prompt);
     } catch (error) {
@@ -384,11 +387,8 @@ ${persona.systemPrompt}
     }
   }
 
-  private buildChatContext(agentName: string, state: AgentState): string {
-    const focus = new FocusManager(agentName);
-    for (const id of state.ignoredMessageIds) focus.ignoreMessage(id);
-    if (state.focusTopics.length > 0) focus.setFocusTopics(state.focusTopics);
-
+  private buildChatContext(agentName: string): string {
+    const focus = this.focusManagers.get(agentName.toLowerCase())!;
     const recent = this.bus.getRecentMessages(CHAT_CONTEXT_WINDOW);
     const filtered = focus.filterMessages(recent);
 
@@ -401,7 +401,7 @@ ${persona.systemPrompt}
           minute: "2-digit",
         });
         if (m.type === "tool_activity") {
-          return `[${time}] ${m.from} → ${m.toolName} ${m.content}`;
+          return `[${time}] ${m.from} ${m.content}`;
         }
         if (m.type === "system") {
           return `[${time}] 📢 ${m.content}`;
@@ -413,14 +413,31 @@ ${persona.systemPrompt}
   }
 
   private onAgentEvent(agentName: string, event: any): void {
+    // Capture args when tool starts, and promote status to "working" for real tools
+    if (event.type === "tool_execution_start") {
+      this.toolCallArgs.set(event.toolCallId, event.args);
+      const toolName: string = event.toolName;
+      if (toolName !== "send_message" && toolName !== "manage_focus") {
+        const state = this.agents.get(agentName.toLowerCase());
+        if (state && state.status === "thinking") {
+          state.status = "working";
+        }
+      }
+      return;
+    }
+
     if (event.type === "tool_execution_end") {
       const toolName: string = event.toolName;
-      const isError: boolean = event.isError;
+      const toolCallId: string = event.toolCallId;
+
+      // Retrieve args captured at start
+      const args = this.toolCallArgs.get(toolCallId) ?? {};
+      this.toolCallArgs.delete(toolCallId);
 
       if (toolName === "send_message" || toolName === "manage_focus") return;
 
       if (toolName === "edit" || toolName === "write") {
-        const filePath = event.result?.details?.path;
+        const filePath = args.path ?? args.file_path;
         if (filePath) {
           const currentOwner = this.activeFiles.get(filePath);
           if (currentOwner && currentOwner !== agentName) {
@@ -429,45 +446,6 @@ ${persona.systemPrompt}
           this.activeFiles.set(filePath, agentName);
         }
       }
-
-      const summary = this.summarizeToolResult(toolName, event);
-      if (summary) {
-        this.bus.post(agentName, summary, { type: "tool_activity", toolName, isError });
-      }
-    }
-  }
-
-  private summarizeToolResult(toolName: string, event: any): string | null {
-    const args = event.args ?? {};
-    const isError = event.isError;
-
-    switch (toolName) {
-      case "edit": {
-        const path = args.path ?? args.file_path ?? "a file";
-        const count = args.edits?.length ?? 1;
-        return `edited ${path}${count > 1 ? ` (${count} edits)` : ""}`;
-      }
-      case "write": {
-        const path = args.path ?? args.file_path ?? "a file";
-        return `wrote ${path}`;
-      }
-      case "bash": {
-        const cmd = (args.command ?? "") as string;
-        const preview = cmd.split("\n")[0] ?? "";
-        const short = preview.length > 80 ? preview.slice(0, 80) + "..." : preview;
-        if (isError) {
-          return `$ ${short} (failed)`;
-        }
-        return `$ ${short}`;
-      }
-      // Read-only tools: don't post to chat — just noise
-      case "read":
-      case "ls":
-      case "grep":
-      case "find":
-        return null;
-      default:
-        return null;
     }
   }
 
@@ -481,15 +459,18 @@ ${persona.systemPrompt}
   ignoreMessage(agentName: string, messageId: string): void {
     const state = this.agents.get(agentName.toLowerCase());
     if (state) state.ignoredMessageIds.add(messageId);
+    this.focusManagers.get(agentName.toLowerCase())?.ignoreMessage(messageId);
   }
 
   setAgentTopics(agentName: string, topics: string[]): void {
     const state = this.agents.get(agentName.toLowerCase());
     if (state) state.focusTopics = topics;
+    this.focusManagers.get(agentName.toLowerCase())?.setFocusTopics(topics);
   }
 
   clearAgentTopics(agentName: string): void {
     const state = this.agents.get(agentName.toLowerCase());
     if (state) state.focusTopics = [];
+    this.focusManagers.get(agentName.toLowerCase())?.clearFocus();
   }
 }
