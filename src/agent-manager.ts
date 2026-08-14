@@ -1,9 +1,10 @@
 import {
+  AuthStorage,
   createAgentSession,
   DefaultResourceLoader,
   defineTool,
   getAgentDir,
-  ModelRuntime,
+  ModelRegistry,
   SessionManager,
   SettingsManager,
 } from "@earendil-works/pi-coding-agent";
@@ -47,7 +48,7 @@ export class AgentManager {
   private readonly MAX_ROUND_MESSAGES = 12;
   // Cached per-agent — avoids allocating a new FocusManager on every message
   private focusManagers = new Map<string, FocusManager>();
-  private modelRuntime?: ModelRuntime;
+  private modelRegistry?: ModelRegistry;
 
   constructor(bus: ChatBus, config: ChorusConfig) {
     this.bus = bus;
@@ -55,7 +56,8 @@ export class AgentManager {
   }
 
   async start(): Promise<void> {
-    this.modelRuntime = await ModelRuntime.create();
+    const authStorage = AuthStorage.create();
+    this.modelRegistry = ModelRegistry.create(authStorage);
     for (const name of this.config.agentNames) {
       await this.addAgent(name);
     }
@@ -173,7 +175,7 @@ export class AgentManager {
       customTools: [sendMessageTool, manageFocusTool],
       sessionManager: SessionManager.inMemory(this.config.cwd),
       settingsManager,
-      ...(this.modelRuntime ? { modelRuntime: this.modelRuntime } : {}),
+      ...(this.modelRegistry ? { modelRegistry: this.modelRegistry } : {}),
       ...(resolvedModel ? { model: resolvedModel } : {}),
     });
 
@@ -482,8 +484,8 @@ ${persona.systemPrompt}
   }
 
   private resolveModel(modelRef: string) {
-    if (!this.modelRuntime) return undefined;
-    const available = [...this.modelRuntime.getModels()];
+    if (!this.modelRegistry) return undefined;
+    const available = this.modelRegistry.getAll();
     const ref = modelRef.trim().toLowerCase();
     if (!ref) return undefined;
 
