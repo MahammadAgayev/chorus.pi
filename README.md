@@ -11,9 +11,7 @@ A multi-agent chat collaboration extension for [pi](https://github.com/earendil-
 ## Installation
 
 ```bash
-git clone <repo-url> chorus
-cd chorus
-npm install
+pi install https://github.com/MahammadAgayev/chorus.pi
 ```
 
 Then set up sample personas:
@@ -31,10 +29,10 @@ cp src/agents/*.md ~/.pi/agent/chorus/agents/
 
 ## Usage
 
-Launch pi with the chorus extension loaded:
+Launch pi:
 
 ```bash
-pi -e ./src/index.ts
+pi
 ```
 
 Then use the chorus commands inside pi:
