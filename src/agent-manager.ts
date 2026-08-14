@@ -2,7 +2,6 @@ import {
   createAgentSession,
   DefaultResourceLoader,
   defineTool,
-  findExactModelReferenceMatch,
   getAgentDir,
   ModelRuntime,
   SessionManager,
@@ -484,7 +483,29 @@ ${persona.systemPrompt}
 
   private resolveModel(modelRef: string) {
     if (!this.modelRuntime) return undefined;
-    const available = this.modelRuntime.getModels();
-    return findExactModelReferenceMatch(modelRef, [...available]);
+    const available = [...this.modelRuntime.getModels()];
+    const ref = modelRef.trim().toLowerCase();
+    if (!ref) return undefined;
+
+    // Try canonical "provider/modelId" match
+    const canonical = available.find(
+      (m) => `${m.provider}/${m.id}`.toLowerCase() === ref,
+    );
+    if (canonical) return canonical;
+
+    // Try provider/modelId split
+    const slashIdx = ref.indexOf("/");
+    if (slashIdx !== -1) {
+      const provider = ref.substring(0, slashIdx);
+      const modelId = ref.substring(slashIdx + 1);
+      const match = available.find(
+        (m) => m.provider.toLowerCase() === provider && m.id.toLowerCase() === modelId,
+      );
+      if (match) return match;
+    }
+
+    // Try bare model ID match (must be unambiguous)
+    const idMatches = available.filter((m) => m.id.toLowerCase() === ref);
+    return idMatches.length === 1 ? idMatches[0] : undefined;
   }
 }
