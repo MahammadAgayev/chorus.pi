@@ -2,25 +2,56 @@
 
 A multi-agent chat collaboration extension for [pi](https://github.com/earendil-works/pi-mono). Spawns a team of AI agents that communicate in a shared group chat, each with their own persona and specialization.
 
-## Quick Start
+## Prerequisites
+
+- [pi](https://github.com/earendil-works/pi-mono) installed and configured
+- Node.js 18+
+- A configured AI provider in `~/.pi/agent/` (auth.json + models.json)
+
+## Installation
 
 ```bash
-# Install dependencies
-cd chorus && npm install
+git clone <repo-url> chorus
+cd chorus
+npm install
+```
 
-# Run with pi
+## Usage
+
+Launch pi with the chorus extension loaded:
+
+```bash
 pi -e ./src/index.ts
+```
 
-# Start a chorus
-/chorus start Build a REST API for user management --agents dev,kai,elena
+Then use the chorus commands inside pi:
+
+```bash
+# Start a session — pick agents interactively
+/chorus start Build a REST API for user management
+
+# Or specify agents directly
+/chorus start Build a REST API --agents dev,kai,elena
 
 # Talk to the group
 /say @elena what's the status on the auth endpoint?
 
+# Or just type — all input routes to the group chat while chorus is active
+hey team, how's it going?
+
 # Check status
 /chorus status
 
-# Stop
+# Manage agents mid-session
+/chorus add marcus
+/chorus pause kai
+/chorus resume kai
+/chorus remove marcus
+
+# List available personas
+/chorus agents
+
+# Stop the session
 /chorus stop
 ```
 
@@ -38,9 +69,9 @@ pi -e ./src/index.ts
 | `/chorus agents` | List available agent personas |
 | `/say <message>` | Post a message to the group chat |
 
-## Agent Personas
+When chorus is running, all non-slash-command input is routed to the group chat automatically — no need to prefix with `/say`.
 
-Personas are defined as markdown files in `src/agents/`. Add a new agent by dropping a `.md` file with frontmatter.
+## Built-in Personas
 
 | Agent | Avatar | Specialization |
 |-------|--------|---------------|
@@ -51,6 +82,61 @@ Personas are defined as markdown files in `src/agents/`. Add a new agent by drop
 | `marcus` | 🧔‍♂️ | Move-Fast Engineer |
 | `nadia` | 👩‍🔧 | Systems & Performance Engineer |
 | `omar` | 🧑‍🎓 | Junior-ish Engineer with Big Ideas |
+
+## Creating Custom Personas
+
+Add a `.md` file to the `src/agents/` directory. Chorus auto-discovers all markdown files in that directory.
+
+### Persona file format
+
+```markdown
+---
+name: yourname
+avatar: 🤖
+specialization: Your Specialty
+description: One-line description shown in agent picker
+model: claude-opus-5-thinking
+tools: read,bash,edit,write,grep,find,ls
+---
+
+Your persona prompt goes here. This becomes the agent's system prompt.
+Write it in second person ("You are...") to define personality, quirks, and behavior.
+```
+
+### Frontmatter fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | ✅ | Agent name (used in @mentions and chat). Use lowercase. |
+| `avatar` | No | Emoji shown in chat. Defaults to 🤖 |
+| `specialization` | No | Short label for the agent's focus area |
+| `description` | No | One-line description shown in the agent picker UI |
+| `model` | No | Model ID to use (must match an ID in your `~/.pi/agent/models.json`). Falls back to the default model if omitted or unmatched. |
+| `tools` | No | Comma-separated list of tools to enable. Defaults to `read,bash,edit,write,grep,find,ls` |
+
+### Example: minimal persona
+
+```markdown
+---
+name: alex
+avatar: 🧑‍🎤
+specialization: Frontend Engineer
+description: CSS wizard, React enthusiast
+---
+
+You are Alex, a frontend engineer who loves clean UI and accessible design.
+You think in components. You care about user experience above all else.
+```
+
+Then start chorus with your custom agent:
+
+```bash
+/chorus start Build a dashboard --agents alex,dev
+```
+
+### Model configuration
+
+To use a specific model for a persona, set the `model` field to a model ID from your `~/.pi/agent/models.json`. Run `/chorus agents` to verify your persona was discovered.
 
 ## Key Features
 
