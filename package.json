@@ -1,0 +1,16 @@
+{
+  "name": "chorus",
+  "version": "0.1.0",
+  "description": "Multi-agent chat collaboration for pi",
+  "type": "module",
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-agent-core": "*",
+    "typebox": "*"
+  },
+  "pi": {
+    "extensions": ["./src/index.ts"]
+  }
+}
