@@ -12,13 +12,15 @@
  *   /say <message>         — post directly to the group chat
  */
 
+import * as fs from "node:fs";
+import * as path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { DynamicBorder } from "@earendil-works/pi-coding-agent";
 import { Container, type SelectItem, SelectList, Text } from "@earendil-works/pi-tui";
 import type { AgentState, ChatMessage } from "./types.ts";
 import { ChatBus } from "./chat-bus.ts";
 import { AgentManager } from "./agent-manager.ts";
-import { discoverPersonas, listPersonaNames } from "./personas.ts";
+import { discoverPersonas, getPersonasDir, getSampleAgentsDir, listPersonaNames } from "./personas.ts";
 import { ChatRenderer, renderStatusBar } from "./renderer.ts";
 
 export default function (pi: ExtensionAPI) {
@@ -60,6 +62,9 @@ export default function (pi: ExtensionAPI) {
           break;
         case "agents":
           handleListAgents(ctx);
+          break;
+        case "setup":
+          handleSetup(ctx);
           break;
         default:
           // If no subcommand, treat the whole thing as a "start" task
@@ -385,6 +390,44 @@ export default function (pi: ExtensionAPI) {
     const available = listPersonaNames();
     ctx.ui.notify(
       `Available agent personas: ${available.join(", ")}\n\nUse /chorus start <task> --agents name1,name2,...`,
+      "info",
+    );
+  }
+
+  function handleSetup(ctx: ExtensionContext): void {
+    const destDir = getPersonasDir();
+    const srcDir = getSampleAgentsDir();
+
+    let srcFiles: string[];
+    try {
+      srcFiles = fs.readdirSync(srcDir).filter((f) => f.endsWith(".md"));
+    } catch {
+      ctx.ui.notify(`No sample personas found at ${srcDir}`, "error");
+      return;
+    }
+
+    if (srcFiles.length === 0) {
+      ctx.ui.notify("No sample personas to copy.", "info");
+      return;
+    }
+
+    fs.mkdirSync(destDir, { recursive: true });
+
+    let copied = 0;
+    let skipped = 0;
+    for (const file of srcFiles) {
+      const dest = path.join(destDir, file);
+      if (fs.existsSync(dest)) {
+        skipped++;
+        continue;
+      }
+      fs.copyFileSync(path.join(srcDir, file), dest);
+      copied++;
+    }
+
+    ctx.ui.notify(
+      `Setup complete: ${copied} persona(s) copied to ${destDir}` +
+        (skipped > 0 ? ` (${skipped} already existed, skipped)` : ""),
       "info",
     );
   }

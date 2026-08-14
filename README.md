@@ -14,11 +14,20 @@ A multi-agent chat collaboration extension for [pi](https://github.com/earendil-
 git clone <repo-url> chorus
 cd chorus
 npm install
-
-# Set up persona directory with the sample agent
-mkdir -p ~/.pi/agent/chorus/agents
-cp src/agents/dev.md ~/.pi/agent/chorus/agents/
 ```
+
+Then set up sample personas:
+
+```bash
+# From inside pi:
+/chorus setup
+
+# Or manually:
+mkdir -p ~/.pi/agent/chorus/agents
+cp src/agents/*.md ~/.pi/agent/chorus/agents/
+```
+
+`/chorus setup` copies the bundled sample personas to `~/.pi/agent/chorus/agents/`, skipping any that already exist.
 
 ## Usage
 
@@ -71,6 +80,7 @@ hey team, how's it going?
 | `/chorus resume <agent>` | Resume a paused agent |
 | `/chorus stop` | Stop the chorus |
 | `/chorus agents` | List available agent personas |
+| `/chorus setup` | Copy sample personas to `~/.pi/agent/chorus/agents/` |
 | `/say <message>` | Post a message to the group chat |
 
 When chorus is running, all non-slash-command input is routed to the group chat automatically — no need to prefix with `/say`.

@@ -1,16 +1,34 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { getAgentDir, parseFrontmatter } from "@earendil-works/pi-coding-agent";
 import type { AgentPersona } from "./types.ts";
 
+let __dirname: string;
+try {
+  __dirname = path.dirname(fileURLToPath(import.meta.url));
+} catch {
+  __dirname = process.cwd();
+}
+
 // Personas are loaded exclusively from the user-level config directory
 const AGENTS_DIR = path.join(getAgentDir(), "chorus", "agents");
+
+// Sample personas bundled with the package (for copying during setup)
+const SAMPLE_AGENTS_DIR = path.join(__dirname, "agents");
 
 /**
  * Get the directory where persona files are loaded from.
  */
 export function getPersonasDir(): string {
   return AGENTS_DIR;
+}
+
+/**
+ * Get the directory where sample personas are bundled (src/agents/).
+ */
+export function getSampleAgentsDir(): string {
+  return SAMPLE_AGENTS_DIR;
 }
 
 /**
