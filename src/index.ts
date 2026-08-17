@@ -2,7 +2,7 @@
  * Chorus — Multi-agent chat collaboration extension for pi.
  *
  * Usage:
- *   /chorus start <task> [--agents agent1,agent2,...]
+ *   /chorus start [--agents agent1,agent2,...]
  *   /chorus status
  *   /chorus add <agent>
  *   /chorus remove <agent>
@@ -67,15 +67,10 @@ export default function (pi: ExtensionAPI) {
           handleSetup(ctx);
           break;
         default:
-          // If no subcommand, treat the whole thing as a "start" task
-          if (args.trim()) {
-            await handleStart(parts, ctx);
-          } else {
-            ctx.ui.notify(
-              "Usage: /chorus start <task> [--agents a,b,c] | status | add <name> | remove <name> | pause <name> | resume <name> | stop | agents",
-              "info",
-            );
-          }
+          ctx.ui.notify(
+            "Usage: /chorus start [--agents a,b,c] | status | add <name> | remove <name> | pause <name> | resume <name> | stop | agents",
+            "info",
+          );
       }
     },
   });
@@ -86,7 +81,7 @@ export default function (pi: ExtensionAPI) {
     description: "Post a message to the chorus group chat",
     handler: async (args, _ctx) => {
       if (!manager) {
-        _ctx.ui.notify("No chorus session active. Use /chorus start <task> first.", "warning");
+        _ctx.ui.notify("No chorus session active. Use /chorus start first.", "warning");
         return;
       }
       if (!args.trim()) return;
@@ -154,27 +149,17 @@ export default function (pi: ExtensionAPI) {
       return;
     }
 
-    // Parse args: everything before --agents is the task, after is agent list
-    let task = "";
+    // Only arg is the optional --agents list; without it we show the picker.
     let agentNames: string[] = [];
     const agentsIdx = parts.indexOf("--agents");
 
     if (agentsIdx >= 0) {
-      task = parts.slice(0, agentsIdx).join(" ");
       const agentArg = parts[agentsIdx + 1];
       if (agentArg) {
         agentNames = agentArg.split(",").map((s) => s.trim()).filter(Boolean);
       }
-    } else {
-      task = parts.join(" ");
     }
 
-    if (!task) {
-      ctx.ui.notify("Usage: /chorus start <task description> [--agents agent1,agent2,...]", "info");
-      return;
-    }
-
-    // If no --agents flag, show a picker
     if (agentNames.length === 0) {
       const personas = discoverPersonas();
       if (personas.size === 0) {
@@ -195,7 +180,6 @@ export default function (pi: ExtensionAPI) {
     const bus = new ChatBus();
     chatRenderer = new ChatRenderer();
     manager = new AgentManager(bus, {
-      task,
       agentNames,
       cwd: ctx.cwd,
     });
@@ -223,8 +207,10 @@ export default function (pi: ExtensionAPI) {
       updateWidget(ctx);
       updateStatus(ctx);
 
-      // Post the initial task to kick things off
-      bus.post("user", `📋 Task: ${task}\n\nTeam, let's get started. @${agentNames[0]} please lead.`);
+      // The team waits for the user's first message rather than inventing work.
+      bus.system(
+        `Team assembled: ${agentNames.join(", ")}. Just type to talk to the group.`,
+      );
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       ctx.ui.notify(`Failed to start chorus: ${errMsg}`, "error");
@@ -242,7 +228,6 @@ export default function (pi: ExtensionAPI) {
     const messages = manager.getBus().getHistory();
 
     let status = `🎵 Chorus Status\n`;
-    status += `Task: ${manager.getConfig().task}\n`;
     status += `Messages: ${messages.length}\n`;
     status += `Agents:\n`;
 
@@ -389,7 +374,7 @@ export default function (pi: ExtensionAPI) {
   function handleListAgents(ctx: ExtensionContext): void {
     const available = listPersonaNames();
     ctx.ui.notify(
-      `Available agent personas: ${available.join(", ")}\n\nUse /chorus start <task> --agents name1,name2,...`,
+      `Available agent personas: ${available.join(", ")}\n\nUse /chorus start --agents name1,name2,...`,
       "info",
     );
   }

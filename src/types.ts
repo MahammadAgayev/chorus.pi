@@ -64,7 +64,6 @@ export interface ChatBusEvents {
 // --- Chorus Config ---
 
 export interface ChorusConfig {
-  task: string;
   agentNames: string[];
   cwd: string;
 }

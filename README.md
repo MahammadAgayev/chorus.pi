@@ -39,13 +39,13 @@ Then use the chorus commands inside pi:
 
 ```bash
 # Start a session — pick agents interactively
-/chorus start Build a REST API for user management
+/chorus start
 
 # Or specify agents directly
-/chorus start Build a REST API --agents dev,kai,elena
+/chorus start --agents dev,rune,fuzz
 
 # Talk to the group
-/say @elena what's the status on the auth endpoint?
+/say @fuzz what's the status on the auth endpoint?
 
 # Or just type — all input routes to the group chat while chorus is active
 hey team, how's it going?
@@ -55,8 +55,8 @@ hey team, how's it going?
 
 # Manage agents mid-session
 /chorus add marcus
-/chorus pause kai
-/chorus resume kai
+/chorus pause rune
+/chorus resume rune
 /chorus remove marcus
 
 # List available personas
@@ -70,7 +70,7 @@ hey team, how's it going?
 
 | Command | Description |
 |---------|-------------|
-| `/chorus start <task> [--agents a,b,c]` | Start a chorus with a task and optional agent list |
+| `/chorus start [--agents a,b,c]` | Start a chorus with an optional agent list. Agents wait for your first message. |
 | `/chorus status` | Show all agents and message counts |
 | `/chorus add <agent>` | Add an agent mid-session |
 | `/chorus remove <agent>` | Remove an agent |
@@ -149,7 +149,7 @@ You think in components. You care about user experience above all else.
 Then start chorus with your custom agent:
 
 ```bash
-/chorus start Build a dashboard --agents alex,dev
+/chorus start --agents alex,dev
 ```
 
 ### Model configuration
@@ -173,13 +173,13 @@ To use a specific model for a persona, set the `model` field to a model ID from 
 │  pi TUI                                      │
 │  ┌────────────────────────────────────────┐  │
 │  │  Chat View (custom message renderer)   │  │
-│  │  🧑‍💻 kai: Let me clean up the API     │  │
-│  │  👩‍🔬 elena: I'll add test coverage     │  │
+│  │  🦦 rune: Let me clean up the API      │  │
+│  │  🧪 fuzz: I'll add test coverage       │  │
 │  │  👤 You: @dev can you update the docs? │  │
 │  └────────────────────────────────────────┘  │
 │  ┌────────────────────────────────────────┐  │
 │  │  Status Bar (widget below editor)      │  │
-│  │  🧑‍💻 kai ●  👩‍🔬 elena 💭  🧑‍🚀 dev ●   │  │
+│  │  🦦 rune ●  🧪 fuzz 💭  🧑‍🚀 dev ●      │  │
 │  └────────────────────────────────────────┘  │
 │  ┌────────────────────────────────────────┐  │
 │  │  Editor: /say or /chorus commands      │  │
